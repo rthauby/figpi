@@ -4,8 +4,9 @@ A **thin AI agent for the Raspberry Pi 5**, shipped as a ready-to-flash SD card 
 
 The Pi runs the least possible: one small Python service (about 110 KB, standard library only, no pip)
 on stock Raspberry Pi OS Lite. All the thinking happens on an **Ollama server elsewhere in your network**.
-The Pi is the agent's body: it exposes a chat page on your LAN and can act on itself with a small set of
-tools (GPIO, system status, shell, files, HTTP, long-term notes).
+The Pi is the agent's body: it exposes a chat page on your LAN, can act on itself with a small set of
+tools (GPIO, system status, shell, files, HTTP, long-term notes), and shows a pixel-art bird on an
+attached touchscreen that animates while you hold your finger on it.
 
 ```
  browser on your phone/laptop ──► http://figpi.local:8080 ──► figpi service on the Pi
@@ -58,6 +59,37 @@ Edit `enabled = [...]` under `[tools]` to remove any of these. The service runs 
 model can administer the Pi; the only thing standing between your LAN and that shell is the web
 password, so set a real one if the network is not fully yours.
 
+## Touchscreen face
+
+Plug a small HDMI or DSI touchscreen into the Pi and the image shows a **black screen with the bird**
+from the moment the service starts; the boot console is silenced too (`quiet`, no cursor, no rainbow
+splash, no blanking). **Press and hold the bird and it animates; let go and it stops** (`release = "freeze"`),
+or snaps back to its resting frame with `release = "rest"`.
+
+No desktop is involved: `figpi display` paints `/dev/fb0` directly and reads the touch panel from
+`/dev/input`, using nothing but the standard library. The bird is a 3 KB sprite baked into the
+package; the display service is skipped automatically on a headless Pi (no `/dev/fb0`).
+
+```toml
+[display]
+scale = 0            # 0 = about a third of the screen height (5x on 1080p); any integer works
+release = "freeze"   # or "rest"
+touch_rotate = 0     # 90 / 180 / 270 if touches land in the wrong spot
+touch_device = ""    # auto-detected; set /dev/input/eventN to pin it
+```
+
+To use your own animation, convert any animated WebP/GIF/APNG on your computer and point the config at it:
+
+```bash
+pip install pillow
+scripts/make-sprite.py my-animation.webp mine.sprite --fps 8   # copy mine.sprite to the boot partition
+```
+
+```toml
+[display]
+sprite = "/boot/firmware/mine.sprite"
+```
+
 ## Configuration
 
 Everything is in `/boot/firmware/figpi.toml` (the `bootfs` partition). After editing it on the Pi:
@@ -77,6 +109,7 @@ Everything is in `/boot/firmware/figpi.toml` (the `bootfs` partition). After edi
 | `agent.system_prompt`   | `""`         | extra instructions |
 | `agent.max_tool_rounds` | `12`         | tool calls per user message before it must answer |
 | `wifi.*`                | empty        | SSID / password / country for `dd`-flashed cards |
+| `display.*`             | see above    | touchscreen face: sprite, scale, release behaviour, touch mapping |
 
 `OLLAMA_HOST` in the environment overrides `url = "auto"`, so `figpi chat` works on any Linux box too.
 
@@ -111,8 +144,9 @@ sudo image/build.sh --no-compress   # faster, leaves a raw .img
 ```
 
 The script verifies the upstream SHA-256, mounts the root partition by byte offset, copies `figpi/`
-to `/opt/figpi`, installs and enables two systemd units, sets the hostname, and drops `figpi.toml`
-on the boot partition with mtools. No chroot, no emulation, no package installs: the agent uses the
+to `/opt/figpi`, installs and enables three systemd units (agent, first boot, display), sets the
+hostname, drops `figpi.toml` on the boot partition with mtools and adds the quiet-boot options to
+`cmdline.txt` / `config.txt`. No chroot, no emulation, no package installs: the agent uses the
 OS's own `python3`. CI (`.github/workflows/ci.yml`) runs the tests on every push and builds and
 attaches the image to a GitHub release on `v*` tags, or on demand via *Run workflow*.
 
@@ -131,10 +165,14 @@ figpi/            the agent (stdlib only)
   ollama.py       streaming /api/chat client, model picking, LAN discovery
   tools.py        the tool set
   server.py       HTTP server + chat page (figpi/web/index.html)
-  cli.py          serve / chat / ask / status / firstboot
+  cli.py          serve / chat / ask / status / firstboot / display
+  display.py      framebuffer + touchscreen "face" (stdlib ioctls, no desktop)
+  assets/         bird.sprite, the baked animation
   config.py       figpi.toml loader
+assets/bird.webp  the source animation (scripts/make-sprite.py turns it into figpi/assets/bird.sprite)
 image/
   build.sh        image builder
+  quiet-boot.py   kernel/firmware options that keep the screen black during boot
   overlay/        files copied onto the root filesystem (units, launcher, console banner)
   boot/figpi.toml default config placed on the boot partition
 scripts/install.sh  install on a running Pi

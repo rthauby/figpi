@@ -107,6 +107,15 @@ def cmd_status(cfg: Config, args) -> int:
     return 0 if ok else 1
 
 
+def cmd_display(cfg: Config, args) -> int:
+    from .display import run
+
+    if not cfg.display.enabled:
+        log.info("display disabled in config")
+        return 0
+    return run(cfg)
+
+
 def cmd_firstboot(cfg: Config, args) -> int:
     """Runs once, before the service starts: Wi-Fi from the config file, hostname, generated password."""
     cfg.state_dir.mkdir(parents=True, exist_ok=True)
@@ -182,6 +191,7 @@ def main(argv: list[str] | None = None) -> int:
     p_ask.add_argument("text", nargs="+")
     sub.add_parser("status", help="show connection, model and tools as JSON")
     sub.add_parser("firstboot", help="one-time setup (run by systemd on first boot)")
+    sub.add_parser("display", help="drive the touchscreen: black screen, sprite animates while held")
     args = parser.parse_args(argv)
     logging.basicConfig(
         level=logging.DEBUG if args.verbose else logging.INFO,
@@ -196,5 +206,6 @@ def main(argv: list[str] | None = None) -> int:
         "ask": cmd_ask,
         "status": cmd_status,
         "firstboot": cmd_firstboot,
+        "display": cmd_display,
     }[args.command]
     return handler(cfg, args)

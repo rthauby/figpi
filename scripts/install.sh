@@ -26,9 +26,14 @@ if [ ! -f "$BOOT/figpi.toml" ]; then
   cp "$HERE/image/boot/figpi.toml" "$BOOT/figpi.toml"
 fi
 
+echo "==> quieting the boot console (black screen until the bird appears)"
+[ -f "$BOOT/cmdline.txt" ] && python3 "$HERE/image/quiet-boot.py" cmdline "$BOOT/cmdline.txt"
+[ -f "$BOOT/config.txt" ] && python3 "$HERE/image/quiet-boot.py" config "$BOOT/config.txt"
+
 systemctl daemon-reload
-systemctl enable figpi-firstboot.service figpi.service >/dev/null
+systemctl enable figpi-firstboot.service figpi.service figpi-display.service >/dev/null
 systemctl restart figpi-firstboot.service || true
 systemctl restart figpi.service
+systemctl restart figpi-display.service || true   # skipped when there is no /dev/fb0
 echo "==> figpi is running.  Edit $BOOT/figpi.toml, then: sudo systemctl restart figpi"
 echo "    web UI: http://$(hostname -I 2>/dev/null | awk '{print $1}'):8080   logs: journalctl -u figpi -f"

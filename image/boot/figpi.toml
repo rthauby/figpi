@@ -44,3 +44,14 @@ max_tool_rounds = 12
 ssid = ""
 password = ""
 country = ""   # two-letter code, e.g. "US", "DE"
+
+[display]
+# A small touchscreen (HDMI/DSI + USB touch) attached to the Pi shows a black screen with the bird.
+# Press and hold the bird to make it move; let go and it stops.  No desktop is involved.
+enabled = true
+scale = 0            # integer pixel scale; 0 = about a third of the screen height
+release = "freeze"   # "freeze" where the animation is when you let go, or "rest" to snap back to the first frame
+hit_margin = 0.25    # how far around the bird a touch still counts, as a fraction of its size
+touch_device = ""    # e.g. "/dev/input/event2"; empty = auto-detect the touchscreen
+touch_rotate = 0     # 0, 90, 180 or 270 if touches land in the wrong place
+# sprite = "/boot/firmware/mine.sprite"   # your own animation (see scripts/make-sprite.py)

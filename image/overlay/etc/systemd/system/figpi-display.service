@@ -1,0 +1,14 @@
+[Unit]
+Description=figpi display - black screen with the bird, animates while held
+ConditionPathExists=/dev/fb0
+After=local-fs.target systemd-udevd.service getty@tty1.service
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/figpi display
+Restart=always
+RestartSec=2
+Environment=PYTHONUNBUFFERED=1 PYTHONDONTWRITEBYTECODE=1
+
+[Install]
+WantedBy=multi-user.target

@@ -131,7 +131,7 @@ log "installing overlay (systemd units, launcher, console banner)"
 cp -a "$HERE/overlay/." "$MNT/"
 chmod 755 "$MNT/usr/local/bin/figpi"
 mkdir -p "$MNT/etc/systemd/system/multi-user.target.wants" "$MNT/var/lib/figpi"
-for unit in figpi.service figpi-firstboot.service; do
+for unit in figpi.service figpi-firstboot.service figpi-display.service; do
   ln -sf "/etc/systemd/system/$unit" "$MNT/etc/systemd/system/multi-user.target.wants/$unit"
 done
 
@@ -150,10 +150,20 @@ sync
 umount "$MNT"
 losetup -d "$LOOP"; LOOP=""
 
-# --- 4. boot partition: the user-editable config --------------------------------------
+# --- 4. boot partition: the user-editable config, quiet boot ----------------------------
+export MTOOLS_SKIP_CHECK=1
 log "writing figpi.toml to the boot partition"
-MTOOLS_SKIP_CHECK=1 mcopy -i "$IMG@@$BOOT_OFF" -o "$HERE/boot/figpi.toml" ::figpi.toml
-MTOOLS_SKIP_CHECK=1 mdir -i "$IMG@@$BOOT_OFF" ::figpi.toml >/dev/null || die "figpi.toml did not land on the boot partition"
+mcopy -i "$IMG@@$BOOT_OFF" -o "$HERE/boot/figpi.toml" ::figpi.toml
+mdir -i "$IMG@@$BOOT_OFF" ::figpi.toml >/dev/null || die "figpi.toml did not land on the boot partition"
+
+# Keep the attached screen black from power-on: no boot text, no cursor, no console blanking, no rainbow splash.
+log "quieting the boot console"
+mtype -i "$IMG@@$BOOT_OFF" ::cmdline.txt > "$WORK/cmdline.txt"
+python3 "$HERE/quiet-boot.py" cmdline "$WORK/cmdline.txt"
+mcopy -i "$IMG@@$BOOT_OFF" -o "$WORK/cmdline.txt" ::cmdline.txt
+mtype -i "$IMG@@$BOOT_OFF" ::config.txt > "$WORK/config.txt"
+python3 "$HERE/quiet-boot.py" config "$WORK/config.txt"
+mcopy -i "$IMG@@$BOOT_OFF" -o "$WORK/config.txt" ::config.txt
 
 # --- 5. output ------------------------------------------------------------------------------
 NAME="figpi-$VERSION-$BASE_DATE-arm64-lite.img"

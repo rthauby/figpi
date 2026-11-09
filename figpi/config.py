@@ -58,12 +58,29 @@ class WifiConfig:
 
 
 @dataclass
+class DisplayConfig:
+    enabled: bool = True
+    sprite: str = ""  # path to a .sprite file; empty = the built-in bird
+    scale: int = 0  # integer pixel scale; 0 = about a third of the screen height
+    fps: float = 0  # 0 = the sprite's own timing
+    release: str = "freeze"  # what happens when you let go: "freeze" where it is, or "rest" (first frame)
+    hit_margin: float = 0.25  # extra touch area around the sprite, as a fraction of its size
+    x: int = -1  # top-left position; -1 = centred
+    y: int = -1
+    framebuffer: str = "/dev/fb0"
+    tty: str = "/dev/tty1"  # console to put in graphics mode (hides the text console); "" to skip
+    touch_device: str = ""  # /dev/input/eventN; empty = auto-detect
+    touch_rotate: int = 0  # 0, 90, 180 or 270 if the touch panel is mounted rotated
+
+
+@dataclass
 class Config:
     ollama: OllamaConfig = field(default_factory=OllamaConfig)
     web: WebConfig = field(default_factory=WebConfig)
     tools: ToolsConfig = field(default_factory=ToolsConfig)
     agent: AgentConfig = field(default_factory=AgentConfig)
     wifi: WifiConfig = field(default_factory=WifiConfig)
+    display: DisplayConfig = field(default_factory=DisplayConfig)
     state_dir: Path = Path(DEFAULT_STATE_DIR)
     source: Path | None = None
 
@@ -91,6 +108,7 @@ def load(path: str | os.PathLike | None = None) -> Config:
             ("tools", cfg.tools),
             ("agent", cfg.agent),
             ("wifi", cfg.wifi),
+            ("display", cfg.display),
         ):
             if isinstance(data.get(section), dict):
                 _merge(target, data[section])
