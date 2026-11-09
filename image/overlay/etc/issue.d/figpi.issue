@@ -1,0 +1,3 @@
+figpi agent: open http://\4:8080 or http://\n.local:8080 from a browser on this network
+Edit figpi.toml on the boot partition (shows up as "bootfs" on a computer) to point it at Ollama.
+

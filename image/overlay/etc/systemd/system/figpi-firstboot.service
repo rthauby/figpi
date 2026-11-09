@@ -1,0 +1,14 @@
+[Unit]
+Description=figpi first-boot setup (Wi-Fi from figpi.toml, hostname, web password)
+ConditionPathExists=!/var/lib/figpi/.firstboot-done
+After=local-fs.target NetworkManager.service
+Wants=NetworkManager.service
+Before=figpi.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/local/bin/figpi firstboot
+
+[Install]
+WantedBy=multi-user.target

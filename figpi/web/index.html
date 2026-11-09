@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>figpi</title>
+<style>
+  :root { --bg:#0f1115; --panel:#171a21; --fg:#e6e6e6; --dim:#8a919e; --accent:#7bd88f; --err:#ff6b6b; --tool:#2a2f3a; }
+  * { box-sizing:border-box }
+  body { margin:0; background:var(--bg); color:var(--fg); font:15px/1.45 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; display:flex; flex-direction:column; height:100dvh }
+  header { display:flex; gap:12px; align-items:center; padding:10px 14px; background:var(--panel); border-bottom:1px solid #222 }
+  header b { color:var(--accent) }
+  header span { color:var(--dim); font-size:13px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; flex:1 }
+  header button { background:transparent; color:var(--dim); border:1px solid #333; border-radius:6px; padding:4px 8px; cursor:pointer }
+  main { flex:1; overflow-y:auto; padding:14px; display:flex; flex-direction:column; gap:10px }
+  .msg { max-width:900px; white-space:pre-wrap; word-wrap:break-word }
+  .user { align-self:flex-end; background:#1f2a3a; padding:8px 12px; border-radius:10px 10px 2px 10px }
+  .bot  { align-self:flex-start; padding:4px 0 }
+  .tool { align-self:flex-start; background:var(--tool); color:var(--dim); font-size:13px; padding:6px 10px; border-radius:8px; max-width:900px; white-space:pre-wrap }
+  .tool b { color:#c9d1d9 }
+  .think { color:var(--dim); font-style:italic; font-size:13px }
+  .error { color:var(--err) }
+  form { display:flex; gap:8px; padding:12px 14px; background:var(--panel); border-top:1px solid #222 }
+  textarea { flex:1; resize:none; background:#0b0d11; color:var(--fg); border:1px solid #333; border-radius:8px; padding:10px; font:inherit; height:48px }
+  form button { background:var(--accent); color:#000; border:0; border-radius:8px; padding:0 18px; font:inherit; font-weight:600; cursor:pointer }
+  form button:disabled { opacity:.5 }
+  #login { position:fixed; inset:0; background:rgba(0,0,0,.8); display:none; align-items:center; justify-content:center }
+  #login div { background:var(--panel); padding:22px; border-radius:12px; display:flex; flex-direction:column; gap:10px; width:320px }
+  #login input { background:#0b0d11; color:var(--fg); border:1px solid #333; border-radius:8px; padding:10px; font:inherit }
+</style>
+</head>
+<body>
+<header><b>figpi</b><span id="status">connecting…</span><button id="reconnect" title="re-scan for Ollama">reconnect</button><button id="reset" title="forget the conversation">reset</button></header>
+<main id="log"></main>
+<form id="f"><textarea id="t" placeholder="Ask the Pi something… (Enter to send, Shift+Enter for newline)" autofocus></textarea><button id="send">send</button></form>
+<div id="login"><div><b>Password</b><small style="color:var(--dim)">It's in figpi.toml (web.password) or figpi-password.txt on the boot partition.</small><input id="pw" type="password"><button id="pwok">unlock</button></div></div>
+<script>
+const $ = s => document.querySelector(s);
+const logEl = $('#log'), statusEl = $('#status'), ta = $('#t'), sendBtn = $('#send');
+let token = localStorage.getItem('figpi-token') || '';
+const headers = () => token ? {'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json'} : {'Content-Type': 'application/json'};
+function add(cls, text) { const d = document.createElement('div'); d.className = 'msg ' + cls; d.textContent = text; logEl.appendChild(d); logEl.scrollTop = logEl.scrollHeight; return d; }
+function toolCard(name, args) { const d = document.createElement('div'); d.className = 'tool'; d.innerHTML = '<b></b> '; d.firstChild.textContent = name; d.append(JSON.stringify(args)); logEl.appendChild(d); logEl.scrollTop = logEl.scrollHeight; return d; }
+async function api(path, opts = {}) {
+  const r = await fetch(path, {...opts, headers: headers()});
+  if (r.status === 401) { $('#login').style.display = 'flex'; throw new Error('unauthorized'); }
+  return r;
+}
+async function refreshStatus() {
+  try {
+    const s = await (await api('/api/status')).json();
+    statusEl.textContent = s.model ? `${s.model} @ ${s.ollama_url}` : (s.last_error || 'no Ollama server yet');
+    statusEl.style.color = s.model ? '' : 'var(--err)';
+  } catch (e) { if (e.message !== 'unauthorized') statusEl.textContent = 'offline'; }
+}
+async function loadHistory() {
+  try {
+    const h = await (await api('/api/history')).json();
+    logEl.innerHTML = '';
+    for (const m of h.messages) {
+      if (m.role === 'user') add('user', m.content);
+      else if (m.role === 'assistant') { if (m.content) add('bot', m.content); for (const c of (m.tool_calls || [])) toolCard(c.function.name, c.function.arguments); }
+      else if (m.role === 'tool') { const d = add('tool', m.content.split('\n').slice(0, 6).join('\n')); }
+    }
+  } catch (e) {}
+}
+async function send() {
+  const text = ta.value.trim(); if (!text) return;
+  ta.value = ''; sendBtn.disabled = true; add('user', text);
+  let bot = null, think = null;
+  try {
+    const r = await api('/api/chat', {method: 'POST', body: JSON.stringify({message: text})});
+    if (!r.ok) { add('error', (await r.json()).error || r.statusText); return; }
+    const reader = r.body.getReader(), dec = new TextDecoder(); let buf = '';
+    while (true) {
+      const {value, done} = await reader.read(); if (done) break;
+      buf += dec.decode(value, {stream: true});
+      let i; while ((i = buf.indexOf('\n')) >= 0) {
+        const line = buf.slice(0, i); buf = buf.slice(i + 1); if (!line.trim()) continue;
+        const ev = JSON.parse(line);
+        if (ev.type === 'text') { if (!bot) bot = add('bot', ''); bot.textContent += ev.text; logEl.scrollTop = logEl.scrollHeight; }
+        else if (ev.type === 'thinking') { if (!think) think = add('think', ''); think.textContent += ev.text; }
+        else if (ev.type === 'tool_call') { bot = null; think = null; toolCard(ev.name, ev.arguments); }
+        else if (ev.type === 'tool_result') { add('tool', ev.result.split('\n').slice(0, 12).join('\n') + (ev.result.split('\n').length > 12 ? '\n…' : '')); }
+        else if (ev.type === 'error') { add('error', ev.message); }
+        else if (ev.type === 'stats' && ev.eval_count && ev.eval_duration) { statusEl.title = (ev.eval_count / ev.eval_duration * 1e9).toFixed(1) + ' tok/s'; }
+      }
+    }
+  } catch (e) { if (e.message !== 'unauthorized') add('error', String(e)); }
+  finally { sendBtn.disabled = false; ta.focus(); refreshStatus(); }
+}
+$('#f').addEventListener('submit', e => { e.preventDefault(); send(); });
+ta.addEventListener('keydown', e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); } });
+$('#reset').onclick = async () => { if (confirm('Forget this conversation?')) { await api('/api/reset', {method: 'POST'}); logEl.innerHTML = ''; } };
+$('#reconnect').onclick = async () => { statusEl.textContent = 'scanning…'; await api('/api/connect', {method: 'POST'}); refreshStatus(); };
+$('#pwok').onclick = () => { token = $('#pw').value; localStorage.setItem('figpi-token', token); $('#login').style.display = 'none'; refreshStatus(); loadHistory(); };
+$('#pw').addEventListener('keydown', e => { if (e.key === 'Enter') $('#pwok').onclick(); });
+refreshStatus(); loadHistory(); setInterval(refreshStatus, 30000);
+</script>
+</body>
+</html>

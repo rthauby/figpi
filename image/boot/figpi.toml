@@ -1,0 +1,46 @@
+# figpi configuration.  This file lives on the FAT boot partition ("bootfs"), so you can
+# edit it from any computer with the SD card plugged in.  Changes apply on the next boot
+# (or `sudo systemctl restart figpi` over SSH).
+
+[ollama]
+# Where the model runs.  The Pi itself runs nothing heavy.
+#   "auto"  -> scan the local /24 network for a machine answering on port 11434
+#   or e.g. "http://192.168.1.50:11434"
+# Ollama must listen on all interfaces on that machine: OLLAMA_HOST=0.0.0.0 ollama serve
+url = "auto"
+# Model to use.  Empty = first installed model that supports tools (see https://ollama.com/search?c=tool).
+# Good small choices: "qwen3:8b", "llama3.1:8b", "qwen2.5:7b".
+model = ""
+# For thinking models: false answers faster, true shows reasoning in the UI.  Comment out for the model default.
+think = false
+# Context window requested from Ollama.
+num_ctx = 8192
+
+[web]
+# The chat page: http://<pi-ip>:8080  (also http://figpi.local:8080 if your network resolves mDNS)
+port = 8080
+# Leave empty to have a random password generated on first boot; it is written to
+# figpi-password.txt next to this file and to /var/lib/figpi/web-password on the Pi.
+password = ""
+
+[tools]
+# What the model is allowed to do on the Pi.  Remove groups you don't want.
+#   system : hostname/IP/temperature/memory/disk        gpio  : read & drive header pins
+#   shell  : run bash commands (as root!)                files : read/write under file_roots
+#   http   : fetch URLs                                  memory: long-term notes
+enabled = ["system", "gpio", "shell", "files", "http", "memory"]
+file_roots = ["/home", "/tmp", "/var/lib/figpi", "/boot/firmware"]
+shell_timeout = 60
+
+[agent]
+# Also becomes the Pi's hostname on first boot (if still the stock one).
+name = "figpi"
+# Extra instructions appended to the built-in system prompt.
+system_prompt = ""
+max_tool_rounds = 12
+
+[wifi]
+# Only needed if you flashed with plain dd.  Raspberry Pi Imager's own Wi-Fi settings work too.
+ssid = ""
+password = ""
+country = ""   # two-letter code, e.g. "US", "DE"

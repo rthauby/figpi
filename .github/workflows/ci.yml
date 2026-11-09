@@ -1,0 +1,59 @@
+name: ci
+
+on:
+  push:
+    branches: ["**"]
+    tags: ["v*"]
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      build_image:
+        description: "Also build the SD card image"
+        type: boolean
+        default: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"   # same major.minor as Raspberry Pi OS Trixie
+      - run: python -m pip install pytest
+      - run: python -m pytest -q
+      - name: shellcheck
+        run: |
+          sudo apt-get install -y -q shellcheck >/dev/null
+          shellcheck image/build.sh scripts/install.sh
+
+  image:
+    needs: test
+    if: startsWith(github.ref, 'refs/tags/v') || (github.event_name == 'workflow_dispatch' && inputs.build_image)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: tools
+        run: sudo apt-get install -y -q mtools xz-utils >/dev/null
+      - name: cache base image
+        uses: actions/cache@v4
+        with:
+          path: image/cache
+          key: raspios-lite-arm64-${{ hashFiles('image/build.sh') }}
+      - name: build
+        run: sudo image/build.sh
+      - name: checksums
+        run: cat dist/*.sha256
+      - uses: actions/upload-artifact@v4
+        with:
+          name: figpi-image
+          path: dist/*
+          retention-days: 14
+      - name: release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*
+          generate_release_notes: true

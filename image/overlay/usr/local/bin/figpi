@@ -1,0 +1,4 @@
+#!/bin/sh
+# figpi launcher: runs the agent with the stock Raspberry Pi OS Python. Nothing is installed via pip.
+export PYTHONPATH="/opt/figpi${PYTHONPATH:+:$PYTHONPATH}"
+exec /usr/bin/python3 -m figpi "$@"

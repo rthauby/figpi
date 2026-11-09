@@ -1,0 +1,19 @@
+[Unit]
+Description=figpi - thin AI agent backed by an Ollama server on the LAN
+Documentation=https://github.com/rthauby/figpi
+Wants=network-online.target figpi-firstboot.service
+After=network-online.target figpi-firstboot.service
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/figpi serve
+Restart=always
+RestartSec=5
+StateDirectory=figpi
+WorkingDirectory=/var/lib/figpi
+Environment=PYTHONUNBUFFERED=1 PYTHONDONTWRITEBYTECODE=1
+# Runs as root so the agent can administer the Pi (GPIO, apt, systemctl).
+# Narrow what the model may do with [tools] enabled = [...] in /boot/firmware/figpi.toml.
+
+[Install]
+WantedBy=multi-user.target
