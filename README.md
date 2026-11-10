@@ -27,7 +27,7 @@ attached touchscreen that animates while you hold your finger on it.
    ```toml
    [ollama]
    url = "http://192.168.1.50:11434"   # or "auto" to scan your /24 for an Ollama server
-   model = "qwen3:8b"                   # any tool-capable model installed on that server
+   model = "qwen3:14b"                   # any tool-capable model installed on that server
    ```
 
    On the Ollama machine make sure it listens on the network: `OLLAMA_HOST=0.0.0.0 ollama serve`

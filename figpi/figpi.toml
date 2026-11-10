@@ -1,0 +1,7 @@
+state_dir = "./state"          # history and notes go here instead of /var/lib/figpi
+[ollama]
+url = "http://192.168.1.50:11434"   # or "auto" to scan your network
+model = "qwen3:8b"
+[tools]
+enabled = ["system", "files", "http", "memory"]   # leave out "shell" unless you want it running bash on your laptop
+file_roots = ["."]
