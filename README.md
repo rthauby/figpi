@@ -1,6 +1,6 @@
 # figpi
 
-A **thin AI agent for the Raspberry Pi 5**, shipped as a ready-to-flash SD card image.
+A **thin AI agent for the Raspberry Pi** (4, 5 or Zero 2 W: anything that runs the 64-bit OS), shipped as a ready-to-flash SD card image.
 
 The Pi runs the least possible: one small Python service (about 110 KB, standard library only, no pip)
 on stock Raspberry Pi OS Lite. All the thinking happens on an **Ollama server elsewhere in your network**.

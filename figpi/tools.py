@@ -113,7 +113,7 @@ def system_status(_: dict) -> str:
 
 
 def gpio(args: dict) -> str:
-    """Drive header pins through `pinctrl` (ships with Raspberry Pi OS, works on the Pi 5's RP1)."""
+    """Drive header pins through `pinctrl` (ships with Raspberry Pi OS, works on every Pi from the 3 up, Pi 5 included)."""
     action = str(args.get("action", "")).lower()
     pin = args.get("pin")
     if not shutil.which("pinctrl"):
